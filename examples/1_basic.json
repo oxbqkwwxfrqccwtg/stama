@@ -1,0 +1,18 @@
+{
+    "StartAt": "test",
+    "States": {
+        "test": {
+            "Type": "Pass",
+            "Result": [1,2,3],
+            "Next": "test2"
+        },
+        "test2": {
+            "Type": "Pass",
+            "Next": "test3"
+        },
+        "test3": {
+            "Type": "Pass",
+            "End": true
+        }
+    }
+}

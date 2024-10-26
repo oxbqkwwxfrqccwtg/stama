@@ -1,12 +1,30 @@
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use serde::{Serialize, Deserialize};
+use crate::Journal;
+
 
 /// Pass state
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all(deserialize = "PascalCase"))]
-pub struct Pass {
+pub struct PassState {
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<serde_json::Value>
 }
+
+
+impl PassState {
+
+    pub fn execute(
+        &self,
+        _input: Option<&serde_json::Value>,
+        _journal: &Journal,
+    ) -> Option<serde_json::Value> {
+        match &self.result {
+            Some(result) => Some(result.clone()),
+            _ => None
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -23,7 +41,7 @@ mod tests {
             }
         }"#;
 
-        let out: Pass = serde_json::from_str(data).unwrap();
+        let out: PassState = serde_json::from_str(data).unwrap();
 
         let result = out.result.unwrap();
 
@@ -37,7 +55,7 @@ mod tests {
         let data = r#"{
         }"#;
 
-        let out: Pass = serde_json::from_str(data).unwrap();
+        let out: PassState = serde_json::from_str(data).unwrap();
 
         assert_eq!(out.result, None);
     }
