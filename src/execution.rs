@@ -1,10 +1,8 @@
-use crate::journal::{Journal, Event};
+use crate::journal::{Journal, Event, EventStatus, Record, EventObject};
 use crate::state::{
     Meta,
-    StateType,
     State,
     StateComposite,
-    execute as execute_state
 };
 use std::collections::BTreeMap;
 
@@ -13,8 +11,9 @@ pub struct Execution<'a> {
 
     next: Option<String>,
     states: BTreeMap<String, StateComposite>,
-    result: Option<serde_json::Value>,
-    journal: Journal<'a>
+    result: Option<&'a serde_json::Value>,
+    input: Option<&'a serde_json::Value>,
+    pub journal: Journal<'a>
 }
 
 
@@ -22,10 +21,9 @@ impl<'a> Execution<'a> {
     pub fn new(
         start_at: & str,
         states: BTreeMap<String, serde_json::Value>,
-        input: Option<serde_json::Value>
+        input: Option<serde_json::Value>,
+        mut journal: &'a Journal,
     ) -> Self {
-
-        let journal = Journal::new();
 
         let mut nstates: BTreeMap<String, StateComposite> = BTreeMap::new();
 
@@ -35,23 +33,22 @@ impl<'a> Execution<'a> {
 
             let meta: Meta = serde_json::from_value(v.clone()).unwrap();
 
-            let state = match meta.r#type {
-                StateType::Pass => State::Pass(
-                    serde_json::from_value(v.clone()).unwrap()
-                ),
-                _ => todo!(),
-            };
+            let state: State = State::new(&meta.r#type, v);
 
             nstates.insert(next.to_string(), (meta, state));
         }
 
-        journal.put(Event::ExecutionStarted, input.as_ref());
+        let rinput = journal.add(Record::Orig {
+            r#type: Event::ExecutionStarted,
+            payload: input
+        });
 
         Execution {
             next: Some(String::from(start_at)),
             states: nstates,
-            result: input,
-            journal: journal
+            input: rinput,
+            result: None,
+            journal: journal.partition(Some(&EventObject::Execution)),
         }
     }
 }
@@ -63,29 +60,43 @@ impl Iterator for Execution<'_> {
 
     fn next(&mut self) -> Option<String> {
 
+        let input: Option<&serde_json::Value> = match self.result {
+            None => self.input,
+            Some(result) => Some(&result),
+        };
+
         let composite: &StateComposite = &self.states[&self.next.clone()
                                                       .unwrap()];
 
         self.result = match &self.next {
             Some(_) => {
-                let result = execute_state(
-                    &composite,
-                    self.result.clone(),
-                    &self.journal
+
+                let r#type = Event::lookup(&composite.0.r#type, &EventStatus::StateEntered)?;
+
+                let result = State::execute(
+                    &composite.1,
+                    self.journal.add(Record::Ref {
+                        r#type: r#type,
+                        payload: input
+                    }),
+                    self.journal.partition(None),
                 );
 
-                result
-            }
-            None => None
+                self.journal.add(Record::Orig {
+                    r#type: Event::lookup(&composite.0.r#type, &EventStatus::StateExited)?,
+                    payload: result
+                })
+            },
+            None => None,
         };
 
         self.next = match &composite.0.end {
             Some(true) => {
 
-                self.journal.put(
-                    Event::ExecutionSucceeded,
-                    self.result.as_ref()
-                );
+                self.journal.add(Record::Orig {
+                    r#type: Event::ExecutionSucceeded,
+                    payload: None
+                });
 
                 None
             },
@@ -105,7 +116,6 @@ impl Iterator for Execution<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Result};
 
     #[test]
     fn test_json() {
@@ -125,7 +135,9 @@ mod tests {
             }
         }"#).unwrap();
 
-        let result: Execution = Execution::new(start_at, states, None);
+        let binding = Journal::new_root();
+
+        let _result: Execution = Execution::new(start_at, states, None, &binding);
     }
 
 }

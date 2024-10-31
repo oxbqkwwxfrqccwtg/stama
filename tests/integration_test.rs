@@ -2,6 +2,7 @@
 mod lib {
     use std::io::prelude::{*};
     use stama::{Execution, Machine};
+    use stama::journal::{WriteGuaranteeLevel, Writer, StandardWriter};
 
     macro_rules! build_test_from_example {
         ($($name:ident, $path:expr, $transition_count: expr),* $(,)?) => {
@@ -16,7 +17,14 @@ mod lib {
 
                 let machine: Machine = serde_json::from_str(&contents).unwrap();
 
-                let execution: Execution = machine.execute(None);
+                let mut execution: Execution = machine.execute(None);
+
+                let mut jwriter = Writer::Standard(StandardWriter {});
+
+                execution.journal.apply_writer(
+                    WriteGuaranteeLevel::Writeback,
+                    jwriter
+                );
 
                 let mut transitions = 0;
 

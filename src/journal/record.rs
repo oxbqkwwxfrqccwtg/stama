@@ -1,6 +1,4 @@
 use serde::{Serialize, Deserialize};
-
-
 #[macro_export]
 macro_rules! build_event {
     ($($name:ident, $salt:expr, $namespace:ident, $category:ident),* $(,)?) => {
@@ -128,59 +126,14 @@ pub enum EventStatus {
 }
 
 
-//TODO: implement interfaces f. guarantee level - ordered, journal, writeback
-pub struct Journal<'a> {
-    root: Option<Box<&'a Journal<'a>>>,
-    parent: Option<Box<&'a Journal<'a>>>,
-    scope: Option<&'a EventObject>,
-}
-
-
-impl<'a> Journal<'a> {
-
-    pub fn new()-> Self {
-        Journal::with_ancestry(None, None, None)
-    }
-
-    pub fn partition(&self, scope: Option<&'a EventObject>) -> Journal {
-
-        let root = match &self.root {
-            None => &self,
-            Some(root) => root
-        };
-
-        return Journal::with_ancestry(
-            scope,
-            Some(Box::new(root)),
-            Some(Box::new(&self))
-        );
-    }
-
-    pub fn put(
-        &self,
+pub enum Record<'a> {
+    Orig {
         r#type: Event,
-        payload: Option<&serde_json::Value>,
-    ) {
-        match &self.root {
-            None => match payload {
-                Some(json) => println!("[{:?}] {:?}", r#type, json),
-                _ => println!("[{:?}]", r#type),
-            },
-            Some(root) => {
-                root.put(r#type, payload)
-            },
-        }
-    }
-
-    pub fn with_ancestry(
-        scope: Option<&'a EventObject>,
-        root: Option<Box<&'a Journal<'a>>>,
-        parent: Option<Box<&'a Journal<'a>>>,
-    ) -> Self {
-        Journal {
-            scope: scope,
-            root: root,
-            parent:parent,
-        }
+        payload: Option<serde_json::Value>
+    },
+    Ref  {
+        r#type: Event,
+        payload: Option<&'a serde_json::Value>
     }
 }
+

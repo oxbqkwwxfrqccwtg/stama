@@ -50,7 +50,6 @@ pub struct Retrier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Result};
 
     #[test]
     fn test_serde_json_de_with_option() {
@@ -95,6 +94,6 @@ mod tests {
 
         let result: serde_json::Value = serde_json::from_str(input).unwrap();
 
-        let cresult: Meta = serde_json::from_value(result.clone()).unwrap();
+        let _cresult: Meta = serde_json::from_value(result.clone()).unwrap();
     }
 }

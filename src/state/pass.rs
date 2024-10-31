@@ -29,7 +29,6 @@ impl PassState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Result};
 
     #[test]
     fn test_serde_json_de_with_options() {
